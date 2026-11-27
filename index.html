@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>らしさと本来の価値がわかる診断｜ABIERTO WORKS</title>
+  <meta name="description" content="自分・自社が考える価値と、周りの人が実際に感じている価値を照らし合わせる診断です。個人にも企業にも使えます。">
+  <script>document.documentElement.classList.add('js');</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <a class="brand" href="./">
+    <img class="brand__mark" src="images/logo.svg" alt="" width="393" height="259">
+    <span class="brand__name">ABIERTO WORKS</span>
+  </a>
+</header>
+
+<main>
+
+  <!-- ===== HERO（本人用） ===== -->
+  <section class="hero" data-view="main">
+    <div class="wrap hero__grid">
+      <div class="hero__copy">
+        <p class="eyebrow">VALUE DISCOVERY — らしさと本来の価値がわかる診断</p>
+        <h1 class="h-display">周りはあなたの、<br>何に価値を感じている？</h1>
+        <p class="lead">自分の声と、周りの声。<br>二つを重ねると、まだ気づいていない価値が見えてきます。</p>
+        <ul class="facts">
+          <li><b>16</b><span>問</span></li>
+          <li><b>5</b><span>分ほど</span></li>
+          <li><b>3</b><span>ステップ</span></li>
+        </ul>
+        <div class="hero__actions">
+          <a class="btn btn--primary btn--lg" href="#step1">診断をはじめる</a>
+          <a class="btn btn--ghost" href="#how">進め方を見る</a>
+        </div>
+        <p class="hero__note">個人にも、企業・チームにも。登録不要、回答はこの端末の中だけに保存。</p>
+      </div>
+      <figure class="hero__visual">
+        <div class="holo-layers holo-layers--hero" id="heroLayers"></div>
+        <figcaption>自分の声と周りの声を、層にして重ねるイメージです（サンプル）。<br><i class="k-gold"></i>気づいていない価値　<i class="k-navy"></i>まだ伝わっていない価値</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===== HERO（周りの人用：?ask=1） ===== -->
+  <section class="hero hero--ask" data-view="ask" hidden>
+    <div class="wrap">
+      <p class="eyebrow">FEEDBACK — 周りの人からの声</p>
+      <h1 class="h-display"><span data-target-name>この人</span>について、<br>教えてください。</h1>
+      <ul class="facts">
+        <li><b>5</b><span>問</span></li>
+        <li><b>3</b><span>分ほど</span></li>
+      </ul>
+      <p class="lead">
+        あなたから見た「<span data-target-name>この人</span>」の良さを、正直に聞かせてください。<br>
+        回答は自動では送信されません。最後に出る「回答コード」を送ったときだけ届きます。
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== HOW ===== -->
+  <section class="sec sec--light" id="how" data-view="main">
+    <div class="wrap">
+      <p class="eyebrow">How it works — 進め方</p>
+      <h2 class="h-1">自分の声と、周りの声。<br>二つを重ねると、見えてくる。</h2>
+      <ol class="steps">
+        <li class="reveal">
+          <figure class="steps__img"><img src="images/photos/self.jpg" alt="" loading="lazy" width="1600" height="1067"></figure>
+          <span class="steps__num">STEP 01</span>
+          <h3>自分・自社について答える</h3>
+          <p>5つの領域、16の問い。直感で選べば約5分です。</p>
+        </li>
+        <li class="reveal" style="--d:.12s">
+          <figure class="steps__img"><img src="images/photos/ask.jpg" alt="" loading="lazy" width="1280" height="720"></figure>
+          <span class="steps__num">STEP 02</span>
+          <h3>周りの人に聞く</h3>
+          <p>依頼文を送るだけ。届いた「回答コード」を貼りつけます。</p>
+        </li>
+        <li class="reveal" style="--d:.24s">
+          <figure class="steps__img"><img src="images/photos/compare.jpg" alt="" loading="lazy" width="1075" height="650"></figure>
+          <span class="steps__num">STEP 03</span>
+          <h3>重ねて、照らし合わせる</h3>
+          <p>差のある領域に、まだ気づいていない価値が隠れています。</p>
+        </li>
+      </ol>
+      <p class="note">※この診断は、医療的・心理学的な判定ではありません。点数は優劣や適性を決めるものではありません。</p>
+    </div>
+  </section>
+
+  <!-- ===== 5つの領域（ホログラムの地図） ===== -->
+  <section class="sec sec--deep" id="areas" data-view="main">
+    <div class="wrap">
+      <p class="eyebrow">Five areas — 価値がめぐる5つの領域</p>
+      <h2 class="h-1">価値は、<br>見つけて、届けて、めぐっていく。</h2>
+      <p class="lead">中心にあるのは、あなたの「らしさ」。そこから5つの領域へ光が流れ、輪のようにめぐります。</p>
+      <div class="areas">
+        <div class="holo-map" id="cycleRing">
+          <p class="holo-map__hint" aria-hidden="true">ドラッグで回せます・球にふれると照らします</p>
+        </div>
+        <ol class="area-list" id="areaList"></ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== STEP 1 自己評価 ===== -->
+  <section class="sec" id="step1" data-view="main">
+    <div class="wrap wrap--narrow">
+      <ol class="tracker" data-at="1" aria-label="診断の流れ">
+        <li><span>01</span>自分に聞く</li>
+        <li><span>02</span>周りに聞く</li>
+        <li><span>03</span>重ねる</li>
+      </ol>
+      <p class="eyebrow">Step 1 — 自分・自社について答える</p>
+      <h2 class="h-1">まずは、<br>今の自分を見てみる。</h2>
+
+      <div class="guide reveal">
+        <img class="guide__face" src="images/guide/point.png" alt="" width="240" height="240">
+        <p class="guide__msg"><b>正解はありません。</b>思い浮かんだ数字を、直感で選んでください。1問10秒くらいで大丈夫です。</p>
+      </div>
+
+      <div class="setup">
+        <fieldset class="seg">
+          <legend>どちらとして答えますか？</legend>
+          <label><input type="radio" name="mode" value="p" checked><span>個人として</span></label>
+          <label><input type="radio" name="mode" value="c"><span>企業・チームとして</span></label>
+        </fieldset>
+        <label class="field">
+          <span class="field__label">お名前・会社名<small>（任意。周りの人への依頼文に表示されます）</small></span>
+          <input type="text" id="targetName" maxlength="40" placeholder="例：山田 花子さん／株式会社〇〇">
+        </label>
+      </div>
+
+      <form id="selfForm" novalidate>
+        <div id="selfItems"></div>
+
+        <div class="block area-block">
+          <div class="area-head">
+            <div class="area-head__txt">
+              <p class="area-head__k">LAST ONE — ラスト1問</p>
+              <h3 class="area-head__name">今の活動とのつながり</h3>
+            </div>
+          </div>
+          <div id="alignItem"></div>
+          <div class="cheer" data-cheer="align" aria-live="polite">
+            <img class="cheer__face" src="images/guide/present.png" alt="" width="240" height="240">
+            <p class="cheer__msg"><b>これで結果が出せます！</b>下の「言葉の問い」は任意です。書けるところだけで大丈夫です。</p>
+          </div>
+        </div>
+
+        <div class="block">
+          <p class="block__en">Your nature — 任意</p>
+          <h3 class="block__title">らしさを言葉にする</h3>
+          <p class="block__desc">点数にはなりません。あとで周りの人の言葉と並べて見比べます。</p>
+          <div id="wordItems"></div>
+        </div>
+
+        <div class="form-foot">
+          <p class="progress" id="selfProgress" aria-live="polite">0 / 16 問</p>
+          <button class="btn btn--primary btn--lg" type="submit">結果を見る</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- 回答中だけ出る進み具合 -->
+  <div class="hud" id="hud" aria-hidden="true">
+    <div class="hud__bar"><i id="hudFill"></i></div>
+    <div class="hud__in">
+      <img class="hud__icon" id="hudIcon" src="images/icons/find.png" alt="">
+      <p class="hud__area" id="hudArea">見つける</p>
+      <p class="hud__count"><b id="hudNum">0</b> / 16</p>
+      <p class="hud__msg" id="hudMsg">あと約3分</p>
+    </div>
+  </div>
+
+  <!-- ===== 自己評価の結果 ===== -->
+  <section class="sec sec--light" id="result" data-view="main" hidden>
+    <div class="wrap">
+      <p class="eyebrow">Result — おつかれさまでした！ 自分・自社から見た今</p>
+      <h2 class="h-1" id="stageTitle"></h2>
+      <p class="lead" id="stageDesc"></p>
+      <div class="stage-hint">
+        <p class="stage-hint__label">次に考えてみたい問い</p>
+        <p class="stage-hint__text" id="stageHint"></p>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-card__head">
+          <h3>5つの領域の点数</h3>
+          <ul class="legend" id="legend1"></ul>
+        </div>
+        <div class="viz">
+          <div class="viz__radar" id="radarSelf"></div>
+          <div class="viz__map">
+            <div class="aura" id="auraSelf">
+            <p class="aura__hint" aria-hidden="true">ドラッグで回せます</p>
+            </div>
+            <p class="map3d__hint">中心があなた。体を包む青いオーラが自分の点数です。<br>周りの声が集まると、その外側に金のオーラが灯ります。</p>
+          </div>
+        </div>
+        <details class="num-detail">
+          <summary>数値で詳しく見る</summary>
+          <div class="dumbbell" id="chartSelf"></div>
+        </details>
+        <p class="chart-note" id="alignNote"></p>
+      </div>
+
+      <div class="grid-2 result-split">
+        <div>
+          <h3 class="h-3">すでに活かせている強み</h3>
+          <ul class="plain icon-list" id="strongList"></ul>
+        </div>
+        <div>
+          <h3 class="h-3">ヒントが見つかる場所</h3>
+          <ul class="plain icon-list" id="growList"></ul>
+        </div>
+      </div>
+
+      <div class="next-push">
+        <img class="next-push__face" src="images/guide/cheer.png" alt="" width="240" height="240">
+        <div class="next-push__body">
+          <p class="next-push__k">ここで終わるのは、もったいない！</p>
+          <p class="next-push__t">ここまでは、自分から見た価値です。<br>周りの声を重ねると、<b>自分では気づいていない価値</b>が見えてきます。</p>
+          <a class="btn btn--primary btn--lg" href="#step2">周りの人に聞いてみる</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== STEP 2 周りに聞く ===== -->
+  <section class="sec" id="step2" data-view="main">
+    <div class="wrap wrap--narrow">
+      <ol class="tracker" data-at="2" aria-label="診断の流れ">
+        <li><span>01</span>自分に聞く</li>
+        <li><span>02</span>周りに聞く</li>
+        <li><span>03</span>重ねる</li>
+      </ol>
+      <p class="eyebrow">Step 2 — 周りの人に聞いてみる</p>
+      <h2 class="h-1">価値は、<br>受け取った人が知っている。</h2>
+      <figure class="photo-band reveal"><img src="images/photos/voices.jpg" alt="" loading="lazy" width="1280" height="720"></figure>
+      <p class="lead">立場の違う<b class="em">3人以上</b>に聞くと、見え方の違いがつかみやすくなります。
+        <span data-mode-text="p">家族・友人・仕事仲間・お客様など。</span><span data-mode-text="c" hidden>社内だけでなく、顧客や取引先にも。</span></p>
+
+      <ol class="mini-steps">
+        <li><span>1</span>依頼文をコピーして送る</li>
+        <li><span>2</span>相手が3分ほどで答える</li>
+        <li><span>3</span>届いたコードを貼りつける</li>
+      </ol>
+
+      <div class="block">
+        <p class="block__en">Invite</p>
+        <h3 class="block__title">依頼文とリンク</h3>
+        <textarea id="inviteText" class="code-box" rows="6" readonly></textarea>
+        <div class="row-btns">
+          <button class="btn btn--primary btn--sm" type="button" id="copyInvite">依頼文をコピー</button>
+          <button class="btn btn--ghost btn--sm" type="button" id="shareInvite" hidden>LINEなどで送る</button>
+        </div>
+      </div>
+
+      <div class="block">
+        <p class="block__en">Collect</p>
+        <h3 class="block__title">届いた回答コードを貼りつける</h3>
+        <p class="block__desc">「AW-」から始まるコードです。いくつかまとめて貼りつけても読み込めます。</p>
+        <textarea id="codeInput" class="code-box" rows="4" placeholder="AW-…"></textarea>
+        <div class="row-btns">
+          <button class="btn btn--primary btn--sm" type="button" id="addCodes">回答を追加</button>
+          <button class="btn btn--ghost btn--sm" type="button" id="openManual">聞き取った回答をここで入力</button>
+        </div>
+        <p class="msg" id="codeMsg" aria-live="polite"></p>
+      </div>
+
+      <div class="block" id="manualWrap" hidden>
+        <p class="block__en">Interview</p>
+        <h3 class="block__title">聞き取った回答を入力する</h3>
+        <p class="block__desc">対面や電話で聞いた答えを、その人の言葉のまま入力してください。</p>
+        <form id="manualForm" class="others-form" novalidate></form>
+      </div>
+
+      <div class="block">
+        <p class="block__en">Responses</p>
+        <h3 class="block__title">集まった回答 <span id="respCount">0件</span></h3>
+        <ul class="resp-list" id="respList"></ul>
+        <div class="guide guide--small" id="respCheer">
+          <img class="guide__face" src="images/guide/ok.png" alt="" width="240" height="240">
+          <p class="guide__msg" id="respCheerMsg">1人目の回答が届いたら、すぐに重ねて見られます。</p>
+        </div>
+        <div class="row-btns">
+          <a class="btn btn--primary" href="#step3" id="toCompare">重ねて照らし合わせる</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 周りの人用フォーム（?ask=1） ===== -->
+  <section class="sec" id="ask" data-view="ask" hidden>
+    <div class="wrap wrap--narrow">
+      <form id="askForm" class="others-form" novalidate></form>
+      <div class="block" id="askDone" hidden>
+        <p class="block__en">Thank you</p>
+        <h3 class="block__title">ありがとうございました。</h3>
+        <p class="block__desc">下の回答コードをコピーして、依頼してくれた方にメールやLINEで送ってください。<br>コードを送るまで、回答はどこにも届きません。</p>
+        <textarea id="askCode" class="code-box" rows="5" readonly></textarea>
+        <div class="row-btns">
+          <button class="btn btn--primary btn--sm" type="button" id="copyAsk">回答コードをコピー</button>
+          <button class="btn btn--ghost btn--sm" type="button" id="shareAsk" hidden>LINEなどで送る</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== STEP 3 照らし合わせ ===== -->
+  <section class="sec sec--light" id="step3" data-view="main">
+    <div class="wrap">
+      <ol class="tracker" data-at="3" aria-label="診断の流れ">
+        <li><span>01</span>自分に聞く</li>
+        <li><span>02</span>周りに聞く</li>
+        <li><span>03</span>重ねる</li>
+      </ol>
+      <p class="eyebrow">Step 3 — 重ねて、照らし合わせる</p>
+      <h2 class="h-1">自分の思う価値と、<br>周りが感じる価値。</h2>
+      <p class="lead" id="compareLead">差は間違いではなく、次の一歩を考える材料です。</p>
+
+      <div class="compare-empty" id="compareEmpty">
+        <img class="compare-empty__img" src="images/guide/think.png" alt="" width="240" height="240">
+        <p>Step 1 の回答と、周りの人からの回答が<b>1件以上</b>そろうと、ここに重ねて表示されます。</p>
+      </div>
+
+      <div id="compareBody" hidden>
+        <div class="filter-row" id="filterRow">
+          <label for="relFilter">周りの回答</label>
+          <select id="relFilter"></select>
+          <span class="filter-row__n" id="filterN"></span>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card__head">
+            <h3>領域ごとの比較</h3>
+            <ul class="legend" id="legend2"></ul>
+          </div>
+          <div class="aura aura--lg" id="auraCompare">
+            <ul class="aura__key" aria-hidden="true">
+              <li><i class="k-navy"></i>内側の青いオーラ＝<span data-self>自分</span>の点数</li>
+              <li><i class="k-gold"></i>外側の金のオーラ＝周りの人の点数</li>
+            </ul>
+            <p class="aura__hint" aria-hidden="true">ドラッグで回せます</p>
+          </div>
+          <p class="map3d__hint">内側の青＝自分、外側の金＝周りの人。点数が高い向きほど、オーラが強く立ちのぼります。差が1.0以上の領域には印が付きます。</p>
+          <details class="num-detail">
+            <summary>数値で詳しく見る</summary>
+            <div class="dumbbell" id="chartCompare"></div>
+          </details>
+          <p class="chart-note">周りの人には、各領域に1問ずつ聞いています。自分の点数（3問の平均）と完全には同じ物差しではないため、0.5程度の差は「近い」と見てください。</p>
+        </div>
+
+        <div class="rel-table-wrap" id="relTableWrap" hidden>
+          <h3 class="h-3">立場ごとの見え方</h3>
+          <p class="block__desc">社内では評価されている価値が、顧客には届いていない、といった差が見つかることがあります。</p>
+          <div class="table-scroll"><table class="table" id="relTable"></table></div>
+        </div>
+
+        <div class="grid-2 gaps">
+          <div class="gap-card">
+            <p class="gap-card__en"><i class="k-gold"></i>Hidden value</p>
+            <h3>自分では気づいていない価値かもしれない</h3>
+            <p class="gap-card__desc">周りのほうが高く感じている領域です。当たり前だと思って、見過ごしていませんか。</p>
+            <ul class="plain icon-list" id="gapHidden"></ul>
+          </div>
+          <div class="gap-card">
+            <p class="gap-card__en"><i class="k-navy"></i>Not yet delivered</p>
+            <h3>まだ伝わっていない価値かもしれない</h3>
+            <p class="gap-card__desc">自分のほうが高く感じている領域です。相手に届く形になっているか、見直してみましょう。</p>
+            <ul class="plain icon-list" id="gapUnseen"></ul>
+          </div>
+        </div>
+
+        <div class="words">
+          <h3 class="h-3">ことばの照らし合わせ</h3>
+          <p class="block__desc">何度も出てくる言葉や、自分では書かなかった言葉に注目してみてください。</p>
+          <div id="wordsBody"></div>
+        </div>
+      </div>
+
+      <div class="reflect">
+        <p class="eyebrow">Reflection — 差があったら</p>
+        <h3 class="h-2">差は、<br>次の問いを考える材料。</h3>
+        <form id="reflectForm"></form>
+        <div class="row-btns">
+          <button class="btn btn--primary btn--sm" type="button" id="printBtn">結果を印刷・PDFで保存</button>
+          <button class="btn btn--ghost btn--sm" type="button" id="resetBtn">回答をすべて消す</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 結果の見方 ===== -->
+  <section class="sec" id="guide" data-view="main">
+    <div class="wrap">
+      <p class="eyebrow">Guide — 結果の見方</p>
+      <h2 class="h-1">点数より、<br>差とエピソードを見る。</h2>
+      <div class="grid-2">
+        <div>
+          <h3 class="h-3">点数の出し方</h3>
+          <p>自分・自社の回答は、各領域3問の平均点です。周りの回答は、領域ごとの1問を、回答した人数で平均します。企業の場合は、立場ごとにも平均を出します。</p>
+          <h3 class="h-3">点数の目安</h3>
+          <dl class="bands">
+            <div><dt>4.0〜5.0</dt><dd><b>手応えがある</b>価値が見え始めている、または活用されている状態です。</dd></div>
+            <div><dt>2.6〜3.9</dt><dd><b>伸ばせる余地がある</b>一部ではできています。具体的な事例と、次の一歩を整理してみましょう。</dd></div>
+            <div><dt>1.0〜2.5</dt><dd><b>これから育てる</b>まず、周りの声や実際に起きていることを集めてみましょう。</dd></div>
+          </dl>
+          <p class="note">※平均点は小数第1位で四捨五入して判定しています（例：3.97 → 4.0）。</p>
+        </div>
+        <div>
+          <h3 class="h-3">今の段階の決め方</h3>
+          <p>「見つける → 広げる → 届ける → 循環させる」の順に見て、最初に平均3.5を下回った領域を「今の段階」としています。4つすべてが3.5以上なら「新しい価値を生み出す段階」です。</p>
+          <ol class="stage-list" id="stageList"></ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== NEXT ===== -->
+  <section class="sec sec--dark sec--photo" id="next" data-view="main">
+    <div class="sec--photo__bg" aria-hidden="true"><img src="images/photos/next.jpg" alt="" loading="lazy" width="1600" height="900"></div>
+    <div class="wrap">
+      <p class="eyebrow">Next step — 次の一歩</p>
+      <h2 class="h-1">見つかった価値を、<br>これからの可能性へ。</h2>
+      <p class="lead">どう広げ、誰に届け、続く形にしていくか。<br class="pc">
+        個別セッションでは、診断結果をもとに、あなたや自社に合った具体的な行動を一緒に整理します。</p>
+      <a class="btn btn--light" id="sessionBtn" href="#">個別セッションについて問い合わせる</a>
+      <p class="note note--dark">診断結果を印刷・PDFで保存しておくと、セッションがスムーズです。</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>※この診断は、医療的・心理学的な判定ではなく、自分や事業を振り返るためのものです。回答はお使いの端末（ブラウザ）の中だけに保存され、アビエルトワークスを含む外部へ自動で送信されることはありません。</p>
+    <p class="copy">© ABIERTO WORKS</p>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- 3D表示用。読み込めなくても、診断とレーダーチャートは動く -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/viz.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
