@@ -714,3 +714,6 @@ ul.icon-list li.icon-item img { width: 48px; height: 48px; }
 .aura__self, .aura__oth, .aura__zone, .holo-map__label, .holo-map__core, .holo-layers__area, .holo-layers__layer {
   will-change: transform, opacity; backface-visibility: hidden; -webkit-font-smoothing: antialiased; transition: none;
 }
+
+/* 2026-11-28 オーラの3段階の説明 */
+.aura__key .aura__tier { margin-top: 4px; font-size: .92em; opacity: .75; letter-spacing: .02em; }

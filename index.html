@@ -200,7 +200,7 @@
             <div class="aura" id="auraSelf">
             <p class="aura__hint" aria-hidden="true">ドラッグで回せます</p>
             </div>
-            <p class="map3d__hint">中心があなた。体を包む青いオーラが自分の点数です。<br>周りの声が集まると、その外側に金のオーラが灯ります。</p>
+            <p class="map3d__hint">中心があなた。体から湧き上がる青い光が自分の点数です。<br>点数によって、光の強さと動きが3段階（2.5未満／2.5〜3.4／3.5以上）に変わります。<br>周りの声が集まると、その外側に金の光の渦が巻きます。</p>
           </div>
         </div>
         <details class="num-detail">
@@ -344,12 +344,13 @@
           </div>
           <div class="aura aura--lg" id="auraCompare">
             <ul class="aura__key" aria-hidden="true">
-              <li><i class="k-navy"></i>内側の青いオーラ＝<span data-self>自分</span>の点数</li>
-              <li><i class="k-gold"></i>外側の金のオーラ＝周りの人の点数</li>
+              <li><i class="k-navy"></i>内側の湧き上がる青い光＝<span data-self>自分</span>の点数</li>
+              <li><i class="k-gold"></i>外側の金の光の渦＝周りの人の点数</li>
+              <li class="aura__tier">光の強さと動きは3段階　弱 2.5未満／中 2.5〜3.4／強 3.5以上</li>
             </ul>
             <p class="aura__hint" aria-hidden="true">ドラッグで回せます</p>
           </div>
-          <p class="map3d__hint">内側の青＝自分、外側の金＝周りの人。点数が高い向きほど、オーラが強く立ちのぼります。差が1.0以上の領域には印が付きます。</p>
+          <p class="map3d__hint">内側の青＝自分、外側の金＝周りの人。点数が高い向きほど、光が強く・高く・速く動きます（3段階）。差が1.0以上の領域には印が付きます。</p>
           <details class="num-detail">
             <summary>数値で詳しく見る</summary>
             <div class="dumbbell" id="chartCompare"></div>

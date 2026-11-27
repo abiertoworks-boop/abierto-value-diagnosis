@@ -715,7 +715,7 @@ window.AWViz = (function () {
     var labelsEl = document.createElement('div'); labelsEl.className = 'aura__labels'; labelsEl.setAttribute('aria-hidden', 'true');
     container.appendChild(labelsEl);
     var waitEl = document.createElement('p'); waitEl.className = 'aura__wait'; waitEl.hidden = true;
-    waitEl.textContent = '周りの声が集まると、外側に金のオーラが灯ります';
+    waitEl.textContent = '周りの声が集まると、外側に金の光の渦が巻きます';
     container.appendChild(waitEl);
 
     var SELF_C = new T.Color('#7f95ff'), OTH_C = new T.Color('#f0c978'), BODY_C = new T.Color('#dfe6ff'), FRAME = new T.Color('#8a93c8');
@@ -837,49 +837,170 @@ window.AWViz = (function () {
       fragmentShader: 'uniform sampler2D uTex; varying float vA; varying float vR; void main(){ vec4 t = texture2D(uTex, gl_PointCoord); vec3 c = mix(vec3(0.62, 0.7, 1.0), vec3(0.97, 0.98, 1.0), clamp(vR * 1.4, 0.0, 1.0)); gl_FragColor = vec4(c, t.a * vA); }'
     });
     var body = new T.Group(); world.add(body);
-    body.add(new T.Points(bodyGeometry(), bodyMat));
+    var bodyGeo = bodyGeometry();
+    body.add(new T.Points(bodyGeo, bodyMat));
     var bodyGlow = halo(BODY_C, 1, 0.08); bodyGlow.scale.set(1.3, 3.4, 1); bodyGlow.position.set(0, 1.55, 0); body.add(bodyGlow);
     var heart = halo(SELF_C, 0.9, 0.5); heart.position.set(0, 2.05, 0.06); body.add(heart);
     var heartCore = halo(0xffffff, 0.3, 0.85); heartCore.position.set(0, 2.05, 0.06); body.add(heartCore);
 
-    /* オーラ：卵形の殻。領域の向きごとに、点数で強さが変わる（内側＝自分・青、外側＝周り・金） */
-    var AURA_VS = [
-      'uniform float uTime; varying vec3 vP; varying vec3 vN; varying vec3 vV; varying float vY;',
-      'void main(){ vY = uv.y; float a = atan(position.z, position.x);',
-      '  vec3 p = position + normal * (0.04 * sin(uTime * 1.7 + a * 3.0 + position.y * 4.0) + 0.03 * sin(uTime * 2.9 - a * 5.0 + position.y * 7.0)) * smoothstep(0.0, 0.3, uv.y);',
-      '  vP = p; vec4 mv = modelViewMatrix * vec4(p, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }'].join('\n');
-    var AURA_FS = [
-      'uniform float uS[5]; uniform float uTime; uniform float uOn; uniform vec3 uColor; uniform float uFocus; uniform float uGain;',
-      'varying vec3 vP; varying vec3 vN; varying vec3 vV; varying float vY;',
-      'const float PI = 3.14159265;',
-      'void main(){',
-      '  float a = atan(vP.z, vP.x); float s = 0.0; float w = 0.0; float fo = 0.0;',
-      '  for (int i = 0; i < 5; i++) { float ai = -PI * 0.5 + float(i) * 2.0 * PI / 5.0; float d = abs(mod(a - ai + PI, 2.0 * PI) - PI); float k = exp(-d * d * 3.2); s += k * uS[i]; w += k; if (float(i) == uFocus) fo = exp(-d * d * 6.0); }',
-      '  s /= w;',
-      '  float edge = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 1.8);',
-      '  float vert = smoothstep(0.0, 0.1, vY) * (1.0 - smoothstep(0.62, 1.0, vY));',
-      '  float flame = 0.65 + 0.35 * sin(vY * 20.0 - uTime * 3.0 + a * 4.0) * sin(a * 6.0 + uTime * 1.1);',
-      '  float alpha = (0.15 + pow(s, 1.5)) * (edge * 0.75 + 0.012) * vert * flame * uOn * uGain * (1.0 + fo * 0.6);',
-      '  gl_FragColor = vec4(uColor * (0.8 + s * 0.5), alpha);',
-      '}'].join('\n');
-    function makeAura(color, w, h, gain) {
-      var U = { uS: { value: [0, 0, 0, 0, 0] }, uTime: { value: 0 }, uOn: { value: 0 }, uColor: { value: color }, uFocus: { value: -1 }, uGain: { value: gain } };
-      var pts = [];
-      for (var j = 0; j <= 40; j++) {
-        var vv = j / 40, y = vv * h;
-        pts.push(new T.Vector2(w * Math.pow(Math.sin(Math.PI * Math.min(1, vv * 1.02)), 0.5) * (1 - 0.15 * vv) + 0.001, y));
-      }
-      var m = add(new T.Mesh(new T.LatheGeometry(pts, 96), new T.ShaderMaterial({
-        uniforms: U, vertexShader: AURA_VS, fragmentShader: AURA_FS,
-        transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide
-      })));
-      m.position.y = -0.05;
-      return U;
+    /* オーラは点数で3段階：弱（2.5未満）／中（2.5〜3.4）／強（3.5以上）。
+       領域の向きごとに、光の量・太さ・高さ・うねりの速さが変わる。
+       ・内側（自分・青）… 体の表面から、光の筋がうねうねと湧き上がる
+       ・外側（周り・金）… 足もとの光の輪から、炎の筆跡がらせんを描いて巻き上がる渦 */
+    function tierK(v) { return v >= 3.5 ? 1 : v >= 2.5 ? 0.5 : 0; }
+    function angDiff(a, b) { var d = ((a - b) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI; return Math.abs(d); }
+    function makeU(color) { return { uS: { value: [0, 0, 0, 0, 0] }, uTime: { value: 0 }, uOn: { value: 0 }, uColor: { value: color }, uFocus: { value: -1 } }; }
+    var auraIn = makeU(SELF_C), auraOut = makeU(OTH_C);
+    auraOut.uSpin = { value: 0 }; auraOut.uFlow = { value: 0 };
+    function ribbonMat(U, vs, fs) {
+      return new T.ShaderMaterial({ uniforms: U, vertexShader: vs, fragmentShader: fs, transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide });
     }
-    var auraIn = makeAura(SELF_C, AIN, 3.3, 1.15);
-    var auraOut = makeAura(OTH_C, AOUT, 3.9, 1.0);
 
-    /* 立ちのぼる光の粒：点数が高い向きほど明るい（内側は青、外側は金） */
+    /* 内側：体から湧き出る光の筋（1本ずつ、帯を画面の方へ向けて描く） */
+    (function () {
+      var TEN = 160, SEG = 22;
+      var P = bodyGeo.attributes.position.array, NR = bodyGeo.attributes.normal.array, B = bodyGeo.attributes.aB.array, cand = [];
+      for (var q = 0; q < B.length; q++) if (B[q] > 0.5 && P[q * 3 + 1] > 0.45) cand.push(q);
+      var nv = TEN * (SEG + 1) * 2;
+      var pos = new Float32Array(nv * 3), aNrm = new Float32Array(nv * 3), aU = new Float32Array(nv), aSide = new Float32Array(nv),
+        aArea = new Float32Array(nv), aRank = new Float32Array(nv), aPh = new Float32Array(nv), aLen = new Float32Array(nv);
+      var idx = [], vi = 0;
+      for (var k = 0; k < TEN; k++) {
+        var c = cand[Math.floor(Math.random() * cand.length)];
+        var nx = NR[c * 3], nz = NR[c * 3 + 2], hl = Math.sqrt(nx * nx + nz * nz);
+        if (hl < 0.3) { var th = Math.random() * Math.PI * 2; nx = Math.cos(th); nz = Math.sin(th); hl = 1; }
+        nx /= hl; nz /= hl;
+        var a = Math.atan2(nz, nx), area = 0, best = 9;
+        for (var j = 0; j < N; j++) { var dd = angDiff(a, ang(j)); if (dd < best) { best = dd; area = j; } }
+        var rank = Math.random(), ph = Math.random(), len = 0.7 + Math.random() * 0.6;
+        for (var s = 0; s <= SEG; s++) for (var sd = -1; sd <= 1; sd += 2) {
+          pos[vi * 3] = P[c * 3]; pos[vi * 3 + 1] = P[c * 3 + 1]; pos[vi * 3 + 2] = P[c * 3 + 2];
+          aNrm[vi * 3] = nx; aNrm[vi * 3 + 2] = nz;
+          aU[vi] = s / SEG; aSide[vi] = sd; aArea[vi] = area; aRank[vi] = rank; aPh[vi] = ph; aLen[vi] = len; vi++;
+        }
+        var b0 = k * (SEG + 1) * 2;
+        for (s = 0; s < SEG; s++) { var o = b0 + s * 2; idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); }
+      }
+      var g = new T.BufferGeometry();
+      g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('aNrm', new T.BufferAttribute(aNrm, 3));
+      g.setAttribute('aU', new T.BufferAttribute(aU, 1)); g.setAttribute('aSide', new T.BufferAttribute(aSide, 1));
+      g.setAttribute('aArea', new T.BufferAttribute(aArea, 1)); g.setAttribute('aRank', new T.BufferAttribute(aRank, 1));
+      g.setAttribute('aPh', new T.BufferAttribute(aPh, 1)); g.setAttribute('aLen', new T.BufferAttribute(aLen, 1));
+      g.setIndex(idx);
+      var vs = [
+        'attribute vec3 aNrm; attribute float aU; attribute float aSide; attribute float aArea; attribute float aRank; attribute float aPh; attribute float aLen;',
+        'uniform float uS[5]; uniform float uTime; uniform float uOn; uniform float uFocus;',
+        'varying float vX; varying float vA; varying float vK;',
+        'float kOf(){ float s = 0.0; for (int i = 0; i < 5; i++) { if (float(i) == aArea) s = uS[i]; } return s; }',
+        'vec3 path(float u, float k, float t){',
+        '  float L = mix(0.32, 1.15, k) * aLen;',
+        '  float amp = mix(0.035, 0.13, k);',
+        '  float sp = mix(0.55, 1.9, k);',
+        '  vec3 sd = normalize(cross(vec3(0.0, 1.0, 0.0), aNrm));',
+        '  float w1 = sin(u * mix(5.0, 8.0, k) - t * sp * 2.2 + aPh * 6.2831);',
+        '  float w2 = sin(u * 11.0 + t * sp * 1.4 + aPh * 17.0);',
+        '  float cr = k * k * 0.02 * sin(u * 37.0 - t * 9.0 + aPh * 53.0);',
+        '  return position + aNrm * (0.025 + u * u * L * 0.32 + amp * 0.45 * w2 * u) + vec3(0.0, u * L, 0.0) + sd * ((amp * w1 + cr) * u * (0.6 + u));',
+        '}',
+        'void main(){',
+        '  float k = kOf(); float t = uTime;',
+        '  vec3 p = path(aU, k, t);',
+        '  vec3 tg = path(min(1.0, aU + 0.02), k, t) - path(max(0.0, aU - 0.02), k, t);',
+        '  vec4 wp = modelMatrix * vec4(p, 1.0);',
+        '  tg = normalize(mat3(modelMatrix) * tg + vec3(0.0, 1e-5, 0.0));',
+        '  vec3 sdw = normalize(cross(tg, normalize(cameraPosition - wp.xyz)));',
+        '  wp.xyz += sdw * aSide * mix(0.022, 0.042, k) * (1.0 - aU * 0.55);',
+        '  float dens = mix(0.4, 1.0, k);',
+        '  float vis = 1.0 - smoothstep(dens - 0.06, dens, aRank);',
+        '  float fade = smoothstep(0.0, 0.1, aU) * (1.0 - smoothstep(0.45, 1.0, aU));',
+        '  float flow = 0.55 + 0.45 * sin(aU * 13.0 - t * mix(2.0, 5.5, k) + aPh * 6.2831);',
+        '  float br = 0.65 + 0.35 * sin(t * mix(1.0, 3.0, k) + aPh * 40.0);',
+        '  float fo = aArea == uFocus ? 1.0 : 0.0;',
+        '  vX = aSide; vK = k;',
+        '  vA = vis * fade * flow * br * mix(0.32, 1.0, k) * uOn * (1.0 + fo * 0.5);',
+        '  gl_Position = projectionMatrix * viewMatrix * wp;',
+        '}'].join('\n');
+      var fs = [
+        'uniform vec3 uColor; varying float vX; varying float vA; varying float vK;',
+        'void main(){ float c = exp(-vX * vX * 7.0); float g = exp(-vX * vX * 2.0) * 0.35;',
+        '  vec3 col = mix(uColor, vec3(1.0), c * (0.45 + vK * 0.45));',
+        '  gl_FragColor = vec4(col, (c + g) * vA); }'].join('\n');
+      var m = add(new T.Mesh(g, ribbonMat(auraIn, vs, fs))); m.frustumCulled = false;
+    })();
+
+    /* 外側：光の渦。足もとの輪を回る炎の筆跡と、らせんを描いて昇る炎の筆跡 */
+    (function () {
+      var strokes = [];
+      for (var k = 0; k < 32; k++) strokes.push({ kind: 0, seg: 48, th: Math.random() * Math.PI * 2, turn: Math.PI * (1.3 + Math.random() * 0.9), len: 0.25 + Math.random() * 0.25 });
+      for (k = 0; k < 22; k++) strokes.push({ kind: 1, seg: 20, th: Math.random() * Math.PI * 2, turn: 1.6 + Math.random() * 1.4, len: 0.6 + Math.random() * 0.3 });
+      var nv = 0; strokes.forEach(function (st) { nv += (st.seg + 1) * 2; });
+      var pos = new Float32Array(nv * 3), aU = new Float32Array(nv), aSide = new Float32Array(nv), aKind = new Float32Array(nv), aTh = new Float32Array(nv),
+        aTurn = new Float32Array(nv), aLen = new Float32Array(nv), aRank = new Float32Array(nv), aPh = new Float32Array(nv), aSpd = new Float32Array(nv);
+      var idx = [], vi = 0;
+      strokes.forEach(function (st) {
+        var rank = Math.random(), ph = Math.random(), spd = 0.8 + Math.random() * 0.45, b0 = vi;
+        for (var s = 0; s <= st.seg; s++) for (var sd = -1; sd <= 1; sd += 2) {
+          aU[vi] = s / st.seg; aSide[vi] = sd; aKind[vi] = st.kind; aTh[vi] = st.th; aTurn[vi] = st.turn; aLen[vi] = st.len;
+          aRank[vi] = rank; aPh[vi] = ph; aSpd[vi] = spd; vi++;
+        }
+        for (s = 0; s < st.seg; s++) { var o = b0 + s * 2; idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); }
+      });
+      var g = new T.BufferGeometry();
+      g.setAttribute('position', new T.BufferAttribute(pos, 3));
+      [['aU', aU], ['aSide', aSide], ['aKind', aKind], ['aTh', aTh], ['aTurn', aTurn], ['aLen', aLen], ['aRank', aRank], ['aPh', aPh], ['aSpd', aSpd]]
+        .forEach(function (e) { g.setAttribute(e[0], new T.BufferAttribute(e[1], 1)); });
+      g.setIndex(idx);
+      var vs = [
+        'attribute float aU; attribute float aSide; attribute float aKind; attribute float aTh; attribute float aTurn; attribute float aLen; attribute float aRank; attribute float aPh; attribute float aSpd;',
+        'uniform float uS[5]; uniform float uTime; uniform float uOn; uniform float uFocus; uniform float uSpin; uniform float uFlow;',
+        'varying float vX; varying float vU; varying float vA; varying float vK; varying float vPh;',
+        'const float PI = 3.14159265; const float R = ' + AOUT.toFixed(3) + ';',
+        'float kAt(float a, out float fo){ float s = 0.0; float w = 0.0; fo = 0.0;',
+        '  for (int i = 0; i < 5; i++) { float ai = -PI * 0.5 + float(i) * 2.0 * PI / 5.0; float d = abs(mod(a - ai + PI, 2.0 * PI) - PI); float kk = exp(-d * d * 3.2); s += kk * uS[i]; w += kk; if (float(i) == uFocus) fo = exp(-d * d * 6.0); }',
+        '  return s / w; }',
+        'vec3 path(float u, out float k, out float fo){',
+        '  if (aKind < 0.5) {',
+        '    float a = aTh + uSpin + u * aTurn; k = kAt(a, fo);',
+        '    float r = R * (1.0 - 0.14 * u) + mix(0.03, 0.12, k) * sin(u * 6.0 + uFlow * 9.0 + aPh * 6.2831);',
+        '    return vec3(cos(a) * r, 0.04 + u * mix(1.5, 3.0, k), sin(a) * r);',
+        '  }',
+        '  float a = aTh + uSpin * 1.5 + u * aTurn; k = kAt(a, fo);',
+        '  float r = R * (1.0 + 0.05 * sin(a * 3.0 + aPh * 6.2831)) + mix(0.0, 0.05, k) * sin(u * 20.0 + aPh * 30.0);',
+        '  return vec3(cos(a) * r, 0.02 + 0.05 * u * (1.0 - u) + 0.04 * k * aPh, sin(a) * r);',
+        '}',
+        'void main(){',
+        '  float k; float fo; float k2; float f2;',
+        '  vec3 p = path(aU, k, fo);',
+        '  vec3 tg = path(min(1.0, aU + 0.015), k2, f2) - path(max(0.0, aU - 0.015), k2, f2);',
+        '  vec4 wp = modelMatrix * vec4(p, 1.0);',
+        '  tg = normalize(mat3(modelMatrix) * tg + vec3(1e-5, 0.0, 0.0));',
+        '  vec3 sdw = normalize(cross(tg, normalize(cameraPosition - wp.xyz)));',
+        '  float head = fract(uFlow * aSpd + aPh) * (1.0 + aLen);',
+        '  float q = (aU - (head - aLen)) / aLen;',
+        '  float taper = (q > 0.0 && q < 1.0) ? sin(PI * q) : 0.0;',
+        '  float wid = aKind < 0.5 ? mix(0.022, 0.07, k) * (1.0 - 0.45 * aU) : mix(0.02, 0.05, k);',
+        '  wp.xyz += sdw * aSide * wid * pow(taper, 0.6);',
+        '  float dens = mix(0.35, 1.0, k);',
+        '  float vis = 1.0 - smoothstep(dens - 0.08, dens, aRank);',
+        '  float top = aKind < 0.5 ? 1.0 - smoothstep(0.7, 1.0, aU) : 1.0;',
+        '  vX = aSide; vU = aU; vK = k; vPh = aPh;',
+        '  vA = vis * taper * top * mix(0.22, 0.72, k) * uOn * (1.0 + fo * 0.5);',
+        '  gl_Position = projectionMatrix * viewMatrix * wp;',
+        '}'].join('\n');
+      var fs = [
+        'uniform vec3 uColor; varying float vX; varying float vU; varying float vA; varying float vK; varying float vPh;',
+        'void main(){',
+        '  float rag = 0.62 + 0.3 * sin(vU * 90.0 + vPh * 40.0) * sin(vU * 31.0 + vPh * 13.0);',
+        '  float body = 1.0 - smoothstep(rag * 0.55, rag, abs(vX));',
+        '  float core = exp(-vX * vX * 10.0);',
+        '  vec3 col = mix(vec3(1.0, 0.55, 0.2), uColor, 0.55 + 0.45 * core);',
+        '  col = mix(col, vec3(1.0, 0.97, 0.86), core * (0.15 + 0.35 * vK));',
+        '  gl_FragColor = vec4(col, (body * 0.7 + core * 0.5) * vA);',
+        '}'].join('\n');
+      var m = add(new T.Mesh(g, ribbonMat(auraOut, vs, fs))); m.frustumCulled = false;
+    })();
+
+    /* 立ちのぼる光の粒：点数が高い向きほど多く明るい（内側は青、外側は金の火の粉） */
     function makeRise(U, color, r0, r1, count, hgt) {
       var aArea = new Float32Array(count), aOff = new Float32Array(count), aR = new Float32Array(count), aPh = new Float32Array(count), aSp = new Float32Array(count);
       for (var k = 0; k < count; k++) {
@@ -899,10 +1020,10 @@ window.AWViz = (function () {
           'const float PI = 3.14159265;',
           'void main(){',
           '  float s = 0.0; for (int i = 0; i < 5; i++) { if (float(i) == aArea) s = uS[i]; }',
-          '  float u = fract(aPh + uTime * aSp); float a = -PI * 0.5 + aArea * 2.0 * PI / 5.0 + aOff + u * 0.5;',
-          '  float r = aR * (1.0 - 0.25 * u); vec3 p = vec3(cos(a) * r, u * uH, sin(a) * r);',
+          '  float u = fract(aPh + uTime * aSp * (0.7 + s * 0.8)); float a = -PI * 0.5 + aArea * 2.0 * PI / 5.0 + aOff + u * 0.5;',
+          '  float r = aR * (1.0 - 0.25 * u); vec3 p = vec3(cos(a) * r, u * uH * (0.6 + 0.4 * s), sin(a) * r);',
           '  vec4 mv = modelViewMatrix * vec4(p, 1.0);',
-          '  vA = pow(s, 2.0) * sin(PI * u) * uOn;',
+          '  vA = (0.08 + 0.92 * s * s) * sin(PI * u) * uOn;',
           '  gl_PointSize = (1.0 + s * 2.0) * uPx * (16.0 / -mv.z);',
           '  gl_Position = projectionMatrix * mv;',
           '}'].join('\n'),
@@ -910,8 +1031,8 @@ window.AWViz = (function () {
       });
       add(new T.Points(g, m));
     }
-    makeRise(auraIn, SELF_C, AIN * 0.75, AIN * 1.05, 260, 3.1);
-    makeRise(auraOut, OTH_C, AOUT * 0.85, AOUT * 1.1, 520, 3.6);
+    makeRise(auraIn, SELF_C, AIN * 0.6, AIN * 0.95, 180, 3.0);
+    makeRise(auraOut, OTH_C, AOUT * 0.85, AOUT * 1.1, 300, 3.6);
 
     /* オーラの名前（画面の右側に、境目から引き出して表示） */
     var zoneIn = document.createElement('div'); zoneIn.className = 'aura__zone is-in'; zoneIn.innerHTML = '<b>内側のオーラ</b><small>自分の点数</small>'; labelsEl.appendChild(zoneIn);
@@ -933,7 +1054,7 @@ window.AWViz = (function () {
       marks.push({ i: i, sCore: sCore, sHalo: sHalo, oHalo: oHalo, oCore: oCore, pulse: pulse, la: la, lb: lb, s: 0, o: 0, gap: 0, heat: 0 });
     }
 
-    var hasOthers = false, appear = 0;
+    var hasOthers = false, appear = 0, meanIn = 0, meanOut = 0, spin = 0, flow = 0;
     function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function set(self, others, info) {
       info = info || {};
@@ -949,8 +1070,11 @@ window.AWViz = (function () {
         m.lb.innerHTML = '<span>' + esc((info.labels || [])[m.i] || '') + '</span><b>' + (others ? '周り ' + fmt(ov) : '周り ―') + '</b>' + tag;
         m.lb.classList.toggle('is-wait', !others);
       });
-      auraIn.uS.value = marks.map(function (m) { return Math.max(0, (m.s - 1) / 4); });
-      auraOut.uS.value = marks.map(function (m) { return others ? Math.max(0, (m.o - 1) / 4) : 0; });
+      // 3段階（弱0／中0.5／強1）。点数そのものではなく段階で見せる
+      auraIn.uS.value = marks.map(function (m) { return tierK(m.s); });
+      auraOut.uS.value = marks.map(function (m) { return others ? tierK(m.o) : 0; });
+      meanIn = auraIn.uS.value.reduce(function (x, y) { return x + y; }, 0) / N;
+      meanOut = auraOut.uS.value.reduce(function (x, y) { return x + y; }, 0) / N;
       ring2w.visible = !others; ring2.visible = !!others; footOut.visible = !!others; footOutLine.visible = !!others;
       zoneOut.classList.toggle('is-wait', !others);
       waitEl.hidden = !!others;
@@ -997,6 +1121,11 @@ window.AWViz = (function () {
       if (CAPTURE) focus = -1;
       [auraIn, auraOut].forEach(function (U) { U.uTime.value = t; U.uFocus.value = focus; });
       auraIn.uOn.value = a; auraOut.uOn.value = (hasOthers ? 1 : 0) * a;
+      // 渦の回る速さと、筆跡が昇る速さ：周りの点数の段階が高いほど速い
+      var vSpin = 0.3 + meanOut * 0.8, vFlow = 0.16 + meanOut * 0.26;
+      if (CAPTURE) { spin = t * vSpin; flow = t * vFlow; } else { spin += dt * vSpin; flow += dt * vFlow; }
+      auraOut.uSpin.value = spin; auraOut.uFlow.value = flow;
+      bodyGlow.material.opacity = (0.05 + meanIn * 0.1) * a;
       marks.forEach(function (m) {
         m.heat += ((m.i === focus ? 1 : 0) - m.heat) * Math.min(1, dt * 4);
         var ks = Math.max(0, (m.s - 1) / 4), ko = Math.max(0, (m.o - 1) / 4);
