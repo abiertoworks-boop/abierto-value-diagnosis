@@ -756,7 +756,7 @@ window.AWViz = (function () {
 
     /* 人の姿：体を「楕円の断面をもつ管」と頭の楕円体で組み、その表面と内側に光の粒を置く。
        幅と厚みを別に持たせているので、横から見ても胸・背中・お尻・足の向きが分かる */
-    function bodyGeometry() {
+    function bodyParts() {
       var tubes = [], balls = [];
       // [x, y, z, 幅（左右）, 厚み（前後）]。足だけは [x, y, z, 高さ, 幅]
       // 胴：肩まで胴の一部として作り、肩から首へなだらかに下がる（肩に丸い玉は置かない）
@@ -774,6 +774,10 @@ window.AWViz = (function () {
           [s * 0.42, 1.92, -0.02, 0.056, 0.06], [s * 0.46, 1.76, -0.01, 0.05, 0.052], [s * 0.5, 1.6, 0.01, 0.04, 0.036]]);
         tubes.push([[s * 0.5, 1.6, 0.01, 0.046, 0.024], [s * 0.53, 1.48, 0.02, 0.05, 0.021], [s * 0.555, 1.36, 0.03, 0.028, 0.014]]);
       });
+      return { tubes: tubes, balls: balls };
+    }
+    function bodyGeometry() {
+      var bp = bodyParts(), tubes = bp.tubes, balls = bp.balls;
       // 面積に比例して粒を割り振る
       var parts = [], total = 0;
       tubes.forEach(function (tb) {
@@ -845,7 +849,7 @@ window.AWViz = (function () {
 
     /* オーラは点数で3段階：弱（2.5未満）／中（2.5〜3.4）／強（3.5以上）。
        領域の向きごとに、光の量・太さ・高さ・うねりの速さが変わる。
-       ・内側（自分・青）… 体の表面から、光の筋がうねうねと湧き上がる
+       ・内側（自分・青）… 透過光のように体全体を光が覆い、縁から炎が立ちのぼり、光が外へ放たれる（強は稲妻も）
        ・外側（周り・金）… 足もとの光の輪から、炎の筆跡がらせんを描いて巻き上がる渦 */
     function tierK(v) { return v >= 3.5 ? 1 : v >= 2.5 ? 0.5 : 0; }
     function angDiff(a, b) { var d = ((a - b) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI; return Math.abs(d); }
@@ -856,74 +860,188 @@ window.AWViz = (function () {
       return new T.ShaderMaterial({ uniforms: U, vertexShader: vs, fragmentShader: fs, transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide });
     }
 
-    /* 内側：体から湧き出る光の筋（1本ずつ、帯を画面の方へ向けて描く） */
+    /* 内側：透過光のオーラ（自分・青）
+       セルアニメの「透過光」と同じ考え方で作る。体の形に切り抜いた型（マスク）を後ろから照らし、
+       にじませて画面に重ねる。①体全体を覆う光 ②縁の明るい輪郭 ③縁から立ちのぼる炎 を1枚の光として描く。
+       型は毎回カメラから見た体の形で作るので、どの向きから見ても体に沿う。揺らぎは1秒12コマの「コマ打ち」。 */
+    function tubeGeo(tb) {
+      var RS = 18, SUB = 4, rings = [];
+      for (var k = 0; k < tb.length - 1; k++) for (var s = 0; s < SUB; s++) rings.push([tb[k], tb[k + 1], s / SUB]);
+      rings.push([tb[tb.length - 2], tb[tb.length - 1], 1]);
+      var Z = new T.Vector3(0, 0, 1), X = new T.Vector3(1, 0, 0), d = new T.Vector3(), u = new T.Vector3(), v = new T.Vector3();
+      var pos = [], nor = [], idx = [];
+      rings.forEach(function (r) {
+        var a = r[0], b = r[1], t = r[2];
+        d.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]).normalize();
+        u.crossVectors(d, Math.abs(d.z) > 0.9 ? X : Z).normalize(); v.crossVectors(d, u).normalize();
+        var ru = a[3] + (b[3] - a[3]) * t, rv = a[4] + (b[4] - a[4]) * t;
+        var cx = a[0] + (b[0] - a[0]) * t, cy = a[1] + (b[1] - a[1]) * t, cz = a[2] + (b[2] - a[2]) * t;
+        for (var j = 0; j <= RS; j++) {
+          var th = j / RS * Math.PI * 2, cs = Math.cos(th), sn = Math.sin(th);
+          pos.push(cx + (u.x * cs * ru + v.x * sn * rv), cy + (u.y * cs * ru + v.y * sn * rv), cz + (u.z * cs * ru + v.z * sn * rv));
+          var nx = u.x * cs / ru + v.x * sn / rv, ny = u.y * cs / ru + v.y * sn / rv, nz = u.z * cs / ru + v.z * sn / rv;
+          var l = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1; nor.push(nx / l, ny / l, nz / l);
+        }
+      });
+      for (var i = 0; i < rings.length - 1; i++) for (var j2 = 0; j2 < RS; j2++) {
+        var o = i * (RS + 1) + j2; idx.push(o, o + RS + 1, o + 1, o + 1, o + RS + 1, o + RS + 2);
+      }
+      var g = new T.BufferGeometry();
+      g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
+      g.setIndex(idx); return g;
+    }
+    var maskU = { uS: auraIn.uS, uFocus: auraIn.uFocus, uMean: { value: 0 } };
+    var maskMat = new T.ShaderMaterial({
+      uniforms: maskU,
+      vertexShader: [
+        'uniform float uS[5]; uniform float uFocus; uniform float uMean; varying vec2 vKF;',
+        'const float PI = 3.14159265;',
+        'void main(){ float hl = length(normal.xz); float a = atan(normal.z, normal.x + 1e-5); float s = 0.0; float w = 0.0; float fo = 0.0;',
+        '  for (int i = 0; i < 5; i++) { float ai = -PI * 0.5 + float(i) * 2.0 * PI / 5.0; float d = abs(mod(a - ai + PI, 2.0 * PI) - PI); float kk = exp(-d * d * 3.2); s += kk * uS[i]; w += kk; if (float(i) == uFocus) fo = exp(-d * d * 6.0); }',
+        '  float m = clamp(hl * 1.6, 0.0, 1.0); vKF = vec2(mix(uMean, s / w, m), fo * m);',
+        '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }'].join('\n'),
+      fragmentShader: 'varying vec2 vKF; void main(){ gl_FragColor = vec4(1.0, vKF.x, vKF.y, 1.0); }'
+    });
+    var maskScene = new T.Scene(), maskBody = new T.Group(); maskScene.add(maskBody);
     (function () {
-      var TEN = 160, SEG = 22;
-      var P = bodyGeo.attributes.position.array, NR = bodyGeo.attributes.normal.array, B = bodyGeo.attributes.aB.array, cand = [];
-      for (var q = 0; q < B.length; q++) if (B[q] > 0.5 && P[q * 3 + 1] > 0.45) cand.push(q);
-      var nv = TEN * (SEG + 1) * 2;
+      var bp = bodyParts();
+      bp.tubes.forEach(function (tb) { maskBody.add(new T.Mesh(tubeGeo(tb), maskMat)); });
+      bp.balls.forEach(function (e) {
+        var g = new T.SphereGeometry(1, 24, 16); g.scale(e[3], e[4], e[5]); g.translate(e[0], e[1], e[2]);
+        maskBody.add(new T.Mesh(g, maskMat));
+      });
+    })();
+    var rtMask = new T.WebGLRenderTarget(4, 4, { minFilter: T.LinearFilter, magFilter: T.LinearFilter, format: T.RGBAFormat });
+    var rtAura = new T.WebGLRenderTarget(4, 4, { minFilter: T.LinearFilter, magFilter: T.LinearFilter, format: T.RGBAFormat, depthBuffer: false });
+    var orthoCam = new T.Camera();
+    function quadScene(mat) { var s = new T.Scene(), m = new T.Mesh(new T.PlaneGeometry(2, 2), mat); m.frustumCulled = false; s.add(m); return s; }
+    var QUAD_VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+    var glowU = { uMask: { value: rtMask.texture }, uAsp: { value: 1 }, uTime: { value: 0 }, uOn: { value: 0 }, uColor: { value: SELF_C }, uBody: { value: 0.5 } };
+    var auraScene = quadScene(new T.ShaderMaterial({
+      uniforms: glowU, vertexShader: QUAD_VS, depthTest: false, depthWrite: false,
+      fragmentShader: [
+        'uniform sampler2D uMask; uniform float uAsp; uniform float uTime; uniform float uOn; uniform vec3 uColor; uniform float uBody;',
+        'varying vec2 vUv;',
+        'float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+        'float noise(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);',
+        '  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }',
+        'float fbm(vec2 p){ return noise(p) * 0.55 + noise(p * 2.1 + 3.7) * 0.3 + noise(p * 4.3 + 9.1) * 0.15; }',
+        'void main(){',
+        '  vec2 uv = vUv; float B = uBody; vec2 ax = vec2(1.0 / uAsp, 1.0);',
+        '  float t = floor(uTime * 12.0) / 12.0;',
+        '  vec4 m0 = texture2D(uMask, uv);',
+        // ① にじみ：体のまわりを包む光
+        '  float g = 0.0; float kg = 0.0;',
+        '  for (int i = 0; i < 12; i++) { float a = float(i) * 0.5236 + 0.26; vec2 d = vec2(cos(a), sin(a)) * ax;',
+        '    vec4 s1 = texture2D(uMask, uv + d * B * 0.03); vec4 s2 = texture2D(uMask, uv + d * B * 0.075);',
+        '    g += s1.r * 0.6 + s2.r * 0.4; kg += s1.g * s1.r * 0.6 + s2.g * s2.r * 0.4; }',
+        '  g /= 12.0; kg = kg / 12.0 / max(g, 0.001);',
+        // ② 輪郭：縁のすぐ外の明るい線（手描きのように少し揺れる）
+        '  float wob = 1.0 + (noise(uv * vec2(uAsp, 1.0) * 26.0 / B + t * 3.0) - 0.5) * 0.7;',
+        '  float dil = 0.0;',
+        '  for (int i = 0; i < 8; i++) { float a = float(i) * 0.7854; dil = max(dil, texture2D(uMask, uv + vec2(cos(a), sin(a)) * ax * B * 0.014 * wob).r); }',
+        '  float edge = clamp(dil - m0.r, 0.0, 1.0);',
+        // ③ 炎：体の形を、乱れを加えながら上へ引き伸ばす
+        '  float fl = 0.0; float kf = 0.0;',
+        '  for (int j = 1; j <= 14; j++) { float fj = float(j) / 14.0;',
+        '    float sway = (fbm(vec2(uv.x * uAsp * 7.0 / B, uv.y * 3.0 / B - t * 1.6 + fj * 1.3)) - 0.5) * 0.3 * fj;',
+        '    vec4 s = texture2D(uMask, uv - vec2(sway * B / uAsp, fj * B * 0.5));',
+        '    float allow = mix(0.25, 1.0, s.g);',
+        '    float c = s.r * (1.0 - smoothstep(allow * 0.3, allow, fj)) * (1.0 - fj * 0.3);',
+        '    if (c > fl) { fl = c; kf = s.g; } }',
+        '  float n1 = fbm(vec2(uv.x * uAsp * 16.0 / B, uv.y * 3.2 / B - t * 1.0));',
+        '  float n2 = fbm(vec2(uv.x * uAsp * 16.0 / B + 7.0, uv.y * 3.2 / B - t * 2.6));',
+        '  float tongue = smoothstep(0.44, 0.62, mix(n1, n2, kf) + fl * 0.18);',
+        '  float flame = fl * tongue * (1.0 - m0.r * 0.5);',
+        '  float kk = (m0.r * m0.g + g * kg + fl * kf) / (m0.r + g + fl + 0.001);',
+        '  float I = m0.r * mix(0.1, 0.2, kk) + edge * mix(0.4, 0.95, kk) + g * mix(0.18, 0.5, kk) + flame * mix(0.4, 1.2, kk);',
+        '  I *= mix(0.94 + 0.06 * noise(vec2(t * 2.0, 1.0)), 0.82 + 0.18 * noise(vec2(t * 5.0, 3.0)), kk) * uOn;',
+        '  vec3 col = mix(uColor * 0.95, vec3(1.0), clamp(I - 0.3, 0.0, 1.0) * mix(0.35, 0.75, kk));',
+        '  gl_FragColor = vec4(col * min(I, 1.1), 1.0);',
+        '}'].join('\n')
+    }));
+    var compMat = new T.ShaderMaterial({
+      uniforms: { uTex: { value: rtAura.texture } }, vertexShader: QUAD_VS, depthTest: false, depthWrite: false, transparent: true,
+      blending: T.CustomBlending, blendEquation: T.AddEquation, blendSrc: T.OneFactor, blendDst: T.OneFactor,
+      fragmentShader: 'uniform sampler2D uTex; varying vec2 vUv; void main(){ vec3 c = texture2D(uTex, vUv).rgb; gl_FragColor = vec4(c, max(c.r, max(c.g, c.b)) * 0.85); }'
+    });
+    var compScene = quadScene(compMat);
+
+    /* 内側：体から放たれる光（光の線が外へ飛び出す）と、強い段階だけの稲妻 */
+    (function () {
+      var P = bodyGeo.attributes.position.array, NR = bodyGeo.attributes.normal.array, B = bodyGeo.attributes.aB.array, cand = [], side = [];
+      for (var q = 0; q < B.length; q++) if (B[q] > 0.5) {
+        var y = P[q * 3 + 1];
+        if (y > 0.3) cand.push(q);
+        if (y > 1.45 && y < 2.4 && Math.abs(P[q * 3]) > 0.2) side.push(q);
+      }
+      var list = [];
+      for (var k = 0; k < 240; k++) list.push({ kind: 0, seg: 6, c: cand[Math.floor(Math.random() * cand.length)] });
+      for (k = 0; k < 14; k++) list.push({ kind: 1, seg: 12, c: side[Math.floor(Math.random() * side.length)] });
+      var nv = 0; list.forEach(function (it) { nv += (it.seg + 1) * 2; });
       var pos = new Float32Array(nv * 3), aNrm = new Float32Array(nv * 3), aU = new Float32Array(nv), aSide = new Float32Array(nv),
-        aArea = new Float32Array(nv), aRank = new Float32Array(nv), aPh = new Float32Array(nv), aLen = new Float32Array(nv);
+        aArea = new Float32Array(nv), aRank = new Float32Array(nv), aPh = new Float32Array(nv), aKind = new Float32Array(nv);
       var idx = [], vi = 0;
-      for (var k = 0; k < TEN; k++) {
-        var c = cand[Math.floor(Math.random() * cand.length)];
-        var nx = NR[c * 3], nz = NR[c * 3 + 2], hl = Math.sqrt(nx * nx + nz * nz);
+      list.forEach(function (it) {
+        var c = it.c, nx = NR[c * 3], nz = NR[c * 3 + 2], hl = Math.sqrt(nx * nx + nz * nz);
         if (hl < 0.3) { var th = Math.random() * Math.PI * 2; nx = Math.cos(th); nz = Math.sin(th); hl = 1; }
         nx /= hl; nz /= hl;
         var a = Math.atan2(nz, nx), area = 0, best = 9;
         for (var j = 0; j < N; j++) { var dd = angDiff(a, ang(j)); if (dd < best) { best = dd; area = j; } }
-        var rank = Math.random(), ph = Math.random(), len = 0.7 + Math.random() * 0.6;
-        for (var s = 0; s <= SEG; s++) for (var sd = -1; sd <= 1; sd += 2) {
+        var rank = Math.random(), ph = Math.random(), b0 = vi;
+        for (var s = 0; s <= it.seg; s++) for (var sd = -1; sd <= 1; sd += 2) {
           pos[vi * 3] = P[c * 3]; pos[vi * 3 + 1] = P[c * 3 + 1]; pos[vi * 3 + 2] = P[c * 3 + 2];
           aNrm[vi * 3] = nx; aNrm[vi * 3 + 2] = nz;
-          aU[vi] = s / SEG; aSide[vi] = sd; aArea[vi] = area; aRank[vi] = rank; aPh[vi] = ph; aLen[vi] = len; vi++;
+          aU[vi] = s / it.seg; aSide[vi] = sd; aArea[vi] = area; aRank[vi] = rank; aPh[vi] = ph; aKind[vi] = it.kind; vi++;
         }
-        var b0 = k * (SEG + 1) * 2;
-        for (s = 0; s < SEG; s++) { var o = b0 + s * 2; idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); }
-      }
+        for (s = 0; s < it.seg; s++) { var o = b0 + s * 2; idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); }
+      });
       var g = new T.BufferGeometry();
       g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('aNrm', new T.BufferAttribute(aNrm, 3));
-      g.setAttribute('aU', new T.BufferAttribute(aU, 1)); g.setAttribute('aSide', new T.BufferAttribute(aSide, 1));
-      g.setAttribute('aArea', new T.BufferAttribute(aArea, 1)); g.setAttribute('aRank', new T.BufferAttribute(aRank, 1));
-      g.setAttribute('aPh', new T.BufferAttribute(aPh, 1)); g.setAttribute('aLen', new T.BufferAttribute(aLen, 1));
+      [['aU', aU], ['aSide', aSide], ['aArea', aArea], ['aRank', aRank], ['aPh', aPh], ['aKind', aKind]]
+        .forEach(function (e) { g.setAttribute(e[0], new T.BufferAttribute(e[1], 1)); });
       g.setIndex(idx);
       var vs = [
-        'attribute vec3 aNrm; attribute float aU; attribute float aSide; attribute float aArea; attribute float aRank; attribute float aPh; attribute float aLen;',
+        'attribute vec3 aNrm; attribute float aU; attribute float aSide; attribute float aArea; attribute float aRank; attribute float aPh; attribute float aKind;',
         'uniform float uS[5]; uniform float uTime; uniform float uOn; uniform float uFocus;',
         'varying float vX; varying float vA; varying float vK;',
+        'float h1(float x){ return fract(sin(x * 12.9898) * 43758.5453); }',
         'float kOf(){ float s = 0.0; for (int i = 0; i < 5; i++) { if (float(i) == aArea) s = uS[i]; } return s; }',
-        'vec3 path(float u, float k, float t){',
-        '  float L = mix(0.32, 1.15, k) * aLen;',
-        '  float amp = mix(0.035, 0.13, k);',
-        '  float sp = mix(0.55, 1.9, k);',
-        '  vec3 sd = normalize(cross(vec3(0.0, 1.0, 0.0), aNrm));',
-        '  float w1 = sin(u * mix(5.0, 8.0, k) - t * sp * 2.2 + aPh * 6.2831);',
-        '  float w2 = sin(u * 11.0 + t * sp * 1.4 + aPh * 17.0);',
-        '  float cr = k * k * 0.02 * sin(u * 37.0 - t * 9.0 + aPh * 53.0);',
-        '  return position + aNrm * (0.025 + u * u * L * 0.32 + amp * 0.45 * w2 * u) + vec3(0.0, u * L, 0.0) + sd * ((amp * w1 + cr) * u * (0.6 + u));',
-        '}',
         'void main(){',
-        '  float k = kOf(); float t = uTime;',
-        '  vec3 p = path(aU, k, t);',
-        '  vec3 tg = path(min(1.0, aU + 0.02), k, t) - path(max(0.0, aU - 0.02), k, t);',
+        '  float k = kOf(); float t = uTime; float a; vec3 dir; vec3 p;',
+        '  vec3 up = vec3(0.0, 1.0, 0.0); vec3 sd = normalize(cross(up, aNrm));',
+        '  if (aKind < 0.5) {',
+        // 光の線：体の表面から外（やや上）へ飛び出し、遠ざかりながら消える
+        '    float life = fract(t * mix(0.35, 0.85, k) + aPh);',
+        '    float head = life * mix(0.3, 0.95, k); float len = mix(0.07, 0.28, k);',
+        '    dir = normalize(aNrm * 0.8 + up * (0.35 + aRank * 0.6));',
+        '    p = position + dir * (0.02 + max(0.0, head - len * (1.0 - aU))) + sd * sin(aU * 3.0 + aPh * 20.0) * 0.02 * aU;',
+        '    float dens = mix(0.3, 1.0, k);',
+        '    a = (1.0 - smoothstep(dens - 0.06, dens, aRank)) * pow(1.0 - life, 1.3) * smoothstep(0.0, 0.08, life) * (0.25 + 0.75 * aU);',
+        '  } else {',
+        // 稲妻：強い段階だけ、ときどき体から横へ走る（形は毎回変わる）
+        '    float ep = floor(t * 9.0 + aPh * 13.0);',
+        '    float on = step(0.8, h1(ep + aPh * 91.0)) * smoothstep(0.72, 0.98, k);',
+        '    float L = 0.5 + h1(ep * 1.7 + aPh) * 0.8;',
+        '    dir = normalize(aNrm + up * (h1(ep * 2.3 + aPh) - 0.35) * 0.9 + sd * (h1(ep * 3.1 + aPh) - 0.5) * 0.8);',
+        '    vec3 jit = (vec3(h1(ep + aU * 37.0 + aPh), h1(ep * 1.3 + aU * 53.0 + aPh), h1(ep * 0.7 + aU * 71.0 + aPh)) - 0.5) * 0.16 * sin(3.14159 * aU);',
+        '    p = position + dir * (0.03 + aU * L) + jit;',
+        '    a = on * (1.0 - aU * 0.6);',
+        '  }',
         '  vec4 wp = modelMatrix * vec4(p, 1.0);',
-        '  tg = normalize(mat3(modelMatrix) * tg + vec3(0.0, 1e-5, 0.0));',
-        '  vec3 sdw = normalize(cross(tg, normalize(cameraPosition - wp.xyz)));',
-        '  wp.xyz += sdw * aSide * mix(0.022, 0.042, k) * (1.0 - aU * 0.55);',
-        '  float dens = mix(0.4, 1.0, k);',
-        '  float vis = 1.0 - smoothstep(dens - 0.06, dens, aRank);',
-        '  float fade = smoothstep(0.0, 0.1, aU) * (1.0 - smoothstep(0.45, 1.0, aU));',
-        '  float flow = 0.55 + 0.45 * sin(aU * 13.0 - t * mix(2.0, 5.5, k) + aPh * 6.2831);',
-        '  float br = 0.65 + 0.35 * sin(t * mix(1.0, 3.0, k) + aPh * 40.0);',
+        '  vec3 tg = normalize(mat3(modelMatrix) * dir);',
+        '  vec3 sdw = normalize(cross(tg, normalize(cameraPosition - wp.xyz)) + 1e-5);',
+        '  float wid = aKind < 0.5 ? mix(0.01, 0.024, k) * (0.35 + 0.65 * aU) : 0.02 * (1.0 - aU * 0.5);',
+        '  wp.xyz += sdw * aSide * wid;',
         '  float fo = aArea == uFocus ? 1.0 : 0.0;',
-        '  vX = aSide; vK = k;',
-        '  vA = vis * fade * flow * br * mix(0.32, 1.0, k) * uOn * (1.0 + fo * 0.5);',
+        '  vX = aSide; vK = aKind > 0.5 ? 1.0 : k;',
+        '  vA = a * mix(0.35, 1.0, k) * uOn * (1.0 + fo * 0.4);',
         '  gl_Position = projectionMatrix * viewMatrix * wp;',
         '}'].join('\n');
       var fs = [
         'uniform vec3 uColor; varying float vX; varying float vA; varying float vK;',
-        'void main(){ float c = exp(-vX * vX * 7.0); float g = exp(-vX * vX * 2.0) * 0.35;',
-        '  vec3 col = mix(uColor, vec3(1.0), c * (0.45 + vK * 0.45));',
+        'void main(){ float c = exp(-vX * vX * 6.0); float g = exp(-vX * vX * 1.8) * 0.35;',
+        '  vec3 col = mix(uColor, vec3(1.0), c * (0.5 + vK * 0.45));',
         '  gl_FragColor = vec4(col, (c + g) * vA); }'].join('\n');
       var m = add(new T.Mesh(g, ribbonMat(auraIn, vs, fs))); m.frustumCulled = false;
     })();
@@ -1075,6 +1193,7 @@ window.AWViz = (function () {
       auraOut.uS.value = marks.map(function (m) { return others ? tierK(m.o) : 0; });
       meanIn = auraIn.uS.value.reduce(function (x, y) { return x + y; }, 0) / N;
       meanOut = auraOut.uS.value.reduce(function (x, y) { return x + y; }, 0) / N;
+      maskU.uMean.value = meanIn;
       ring2w.visible = !others; ring2.visible = !!others; footOut.visible = !!others; footOutLine.visible = !!others;
       zoneOut.classList.toggle('is-wait', !others);
       waitEl.hidden = !!others;
@@ -1098,6 +1217,13 @@ window.AWViz = (function () {
       camera.position.set(0, LOOKY + d * Math.sin(E), d * Math.cos(E));
       camera.lookAt(0, LOOKY - 0.3, 0);
       camera.updateProjectionMatrix();
+      camera.updateMatrixWorld();
+      // 透過光用の型と光は、画面の半分の解像度で作る（にじみには十分で、軽い）
+      var pr = renderer.getPixelRatio(), rw = Math.max(2, Math.round(w * pr / 2)), rh = Math.max(2, Math.round(h * pr / 2));
+      rtMask.setSize(rw, rh); rtAura.setSize(rw, rh);
+      glowU.uAsp.value = w / h;
+      var y0 = new T.Vector3(0, 0, 0).project(camera).y, y1 = new T.Vector3(0, 2.95, 0).project(camera).y;
+      glowU.uBody.value = Math.abs(y1 - y0) / 2;
       return true;
     }
 
@@ -1149,7 +1275,14 @@ window.AWViz = (function () {
       if (!st.dragging) { st.vel *= 0.93; st.drag += st.vel; }
       world.rotation.y = (CAPTURE || REDUCED ? -0.35 : -0.35 + t * 0.07) + st.drag;
       world.updateMatrixWorld();
+      // 透過光：①体の型を描く → ②型から光（にじみ・輪郭・炎）を作る → ③いつもの画面に光を足す
+      maskBody.rotation.y = world.rotation.y; maskBody.updateMatrixWorld();
+      glowU.uTime.value = t; glowU.uOn.value = a;
+      renderer.setRenderTarget(rtMask); renderer.clear(); renderer.render(maskScene, camera);
+      renderer.setRenderTarget(rtAura); renderer.clear(); renderer.render(auraScene, orthoCam);
+      renderer.setRenderTarget(null);
       renderer.render(scene, camera);
+      renderer.autoClear = false; renderer.render(compScene, orthoCam); renderer.autoClear = true;
 
       camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
       placeZone(zoneIn, AIN * 0.98, 2.05, 18);
