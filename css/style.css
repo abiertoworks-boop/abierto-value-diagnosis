@@ -296,7 +296,15 @@ ul.plain li.empty { color: var(--ink-mute); }
 
 .words { margin-top: 56px; }
 .word-group { padding: 22px 0; border-top: 1px solid var(--line); }
-.word-group h4 { font-weight: 500; font-size: 15px; margin: 0 0 10px; }
+.word-group h5 { font-weight: 500; font-size: 15px; margin: 0 0 10px; }
+.words__part { margin-top: 32px; padding: 26px 28px 6px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); }
+.words__part--from { border-top: 3px solid var(--series-others); }
+.words__part--self { border-top: 3px solid var(--series-self); }
+.words__part .block__en { margin: 0 0 2px; }
+.words__part--self .block__en { color: var(--navy-1); }
+.words__head { font-weight: 500; font-size: 19px; letter-spacing: .04em; margin: 0 0 4px; }
+.words__desc { font-size: 13.5px; color: var(--ink-mute); margin: 0 0 6px; line-height: 1.8; }
+@media (max-width: 600px) { .words__part { padding: 20px 16px 4px; } }
 .word-group ul { list-style: none; padding: 0; display: grid; gap: 8px; }
 .word-group li { font-size: 14.5px; line-height: 1.8; padding-left: 0; }
 .word-group li small { color: var(--ink-mute); font-size: 12px; margin-left: 8px; }

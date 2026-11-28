@@ -21,10 +21,10 @@
       lead: '自分の良さに、気づいているか',
       about: '「当たり前」にしていることの中に、人から喜ばれている良さが隠れています。',
       items: {
-        p: ['人から「ありがとう」「助かった」と言われた場面を、具体的に思い出せる。',
+        p: ['自分が取った行動で、人から「ありがとう」「助かった」と言われた場面を、具体的に思い出せる。',
             '周りの人が自分のどこを「いいな」と思ってくれているか、だいたい分かる。',
             '自分の得意なことを、実際にあったエピソードで話せる。'],
-        c: ['お客様や取引先から「ありがとう」「助かった」と言われた場面を、具体的に思い出せる。',
+        c: ['自社が取った行動で、お客様や取引先から「ありがとう」「助かった」と言われた場面を、具体的に思い出せる。',
             'お客様が自社のどこを気に入って選んでくれているか、だいたい分かる。',
             '自社の強みを、実際にあったエピソードで話せる。']
       } },
@@ -654,32 +654,52 @@
 
     // ことば
     var wb = $('#wordsBody'); wb.textContent = '';
-    var t = targetLabel(state.mode, '');
+    // 1) 相手からのフィードバック（周りの人が書いた言葉）
     var groups = [
-      { q: 'らしさ（' + selfWord() + 'の言葉と、周りの言葉）', mine: state.self.words.filter(Boolean), idx: [0, 2] },
-      { q: '頼りたくなるとき', mine: [], idx: [1] },
-      { q: 'おかげで変わったこと', mine: [], idx: [3] },
-      { q: '特に必要としている人', mine: [], idx: [4] },
-      { q: 'もっと知られてほしい・もったいないところ', mine: [], idx: [5] },
-      { q: 'これから届けてほしい価値', mine: [], idx: [6] }
+      { q: 'らしさ', idx: [0, 2] },
+      { q: '頼りたくなるとき', idx: [1] },
+      { q: 'おかげで変わったこと', idx: [3] },
+      { q: '特に必要としている人', idx: [4] },
+      { q: 'もっと知られてほしい・もったいないところ', idx: [5] },
+      { q: 'これから届けてほしい価値', idx: [6] }
     ];
-    groups.forEach(function (g) {
-      var items = [];
-      g.mine.forEach(function (m) { items.push({ t: m, who: selfWord(), mine: true }); });
-      list.forEach(function (o) { g.idx.forEach(function (k) { if (o.f[k]) items.push({ t: o.f[k], who: o.r }); }); });
-      if (!items.length) return;
+    function wordBox(title, items) {
       var box = el('div', { class: 'word-group' });
-      box.appendChild(el('h4', null, g.q));
+      box.appendChild(el('h5', null, title));
       var ul = el('ul');
       items.forEach(function (it) {
         var li = el('li', { class: it.mine ? 'mine' : '' }, it.t);
-        li.appendChild(el('small', null, '— ' + it.who));
+        if (it.who) li.appendChild(el('small', null, '— ' + it.who));
         ul.appendChild(li);
       });
       box.appendChild(ul);
-      wb.appendChild(box);
+      return box;
+    }
+    function wordSection(en, title, desc, boxes, cls) {
+      var sec = el('div', { class: 'words__part ' + cls });
+      sec.appendChild(el('p', { class: 'block__en' }, en));
+      sec.appendChild(el('h4', { class: 'words__head' }, title));
+      sec.appendChild(el('p', { class: 'words__desc' }, desc));
+      boxes.forEach(function (b) { sec.appendChild(b); });
+      return sec;
+    }
+    var fromBoxes = [];
+    groups.forEach(function (g) {
+      var items = [];
+      list.forEach(function (o) { g.idx.forEach(function (k) { if (o.f[k]) items.push({ t: o.f[k], who: o.r }); }); });
+      if (items.length) fromBoxes.push(wordBox(g.q, items));
     });
-    if (!wb.children.length) wb.appendChild(el('p', { class: 'block__desc' }, 'まだ言葉の回答はありません。'));
+    wb.appendChild(wordSection('From others', '相手からのフィードバック', '周りの人が、' + selfWord() + 'について書いてくれた言葉です。',
+      fromBoxes.length ? fromBoxes : [el('p', { class: 'block__desc' }, 'まだ周りの人からの言葉はありません。')], 'words__part--from'));
+
+    // 2) 自分で書いた言葉（Step 1 の3つの問い）
+    var selfBoxes = [];
+    WORDS[state.mode].forEach(function (q, i) {
+      var w = (state.self.words[i] || '').trim();
+      if (w) selfBoxes.push(wordBox(q, [{ t: w, mine: true }]));
+    });
+    wb.appendChild(wordSection('Your own words', selfWord() + 'で書いた言葉', 'Step 1 で、' + selfWord() + 'について書いた言葉です。上の「相手からのフィードバック」と見比べてみてください。',
+      selfBoxes.length ? selfBoxes : [el('p', { class: 'block__desc' }, 'まだ書いていません。')], 'words__part--self'));
   }
 
   function renderReflect() {
